@@ -253,7 +253,7 @@ export default function CarPage({ params }: { params: Promise<{ id: string }> })
                 <div>
                   <h2 className="text-xl font-semibold text-white mb-4">Models</h2>
                   <div className="flex flex-wrap gap-2">
-                    {car.models.map((model: any, index: number) => (
+                    {car.models.map((model, index) => (
                       <span key={index} className="px-4 py-2 rounded-xl backdrop-blur-md bg-white/10 border border-white/30 text-white text-sm">
                         {model}
                       </span>
