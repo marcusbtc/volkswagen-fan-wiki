@@ -32,6 +32,11 @@ def read_root():
     return {"message": "Welcome to the Volkswagen Fan Wiki API"}
 
 
+@app.get("/healthz", include_in_schema=False)
+def healthcheck():
+    return {"status": "ok"}
+
+
 @app.get("/api/cars")
 def get_cars(db: Session = Depends(get_db)):
     cars = db.query(Car).all()

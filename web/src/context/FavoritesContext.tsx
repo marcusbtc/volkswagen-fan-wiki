@@ -17,6 +17,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const saved = localStorage.getItem(CONFIG.FAVORITES_KEY)
     if (saved) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate persisted client state after mount
       setFavorites(JSON.parse(saved))
     }
   }, [])

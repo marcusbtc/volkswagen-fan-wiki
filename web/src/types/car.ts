@@ -5,7 +5,7 @@ export interface Car {
   production_end: string | null;
   image_url?: string | null;
   tags?: string[];
-  models?: any[];
+  models?: string[];
   description?: string | null;
   engine?: string | null;
   fuel_type?: string | null;

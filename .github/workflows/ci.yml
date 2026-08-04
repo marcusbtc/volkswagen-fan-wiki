@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:15.12-alpine
+        env:
+          POSTGRES_DB: volkswagen_wiki
+          POSTGRES_USER: volkswagen
+          POSTGRES_PASSWORD: test-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U volkswagen -d volkswagen_wiki"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: api/requirements.txt
+      - run: pip install --requirement requirements.txt pip-audit
+      - run: python -m compileall .
+      - run: pip-audit --requirement requirements.txt
+      - name: API health smoke test
+        env:
+          DATABASE_URL: postgresql://volkswagen:test-password@127.0.0.1:5432/volkswagen_wiki
+          ALLOWED_ORIGINS: http://localhost:3000
+        run: |
+          uvicorn main:app --host 127.0.0.1 --port 8000 &
+          for attempt in {1..20}; do
+            curl --fail --silent http://127.0.0.1:8000/healthz && exit 0
+            sleep 1
+          done
+          exit 1
+
+  web-and-containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test -- --run
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:8000
+      - run: npm audit --audit-level=critical
+      - name: Secret scan
+        working-directory: .
+        run: docker run --rm --volume "$PWD:/repo" zricethezav/gitleaks:v8.28.0 detect --source=/repo --no-banner
+      - name: Build production images
+        working-directory: .
+        run: |
+          docker build --tag volkswagen-api:${{ github.sha }} api
+          docker build --build-arg NEXT_PUBLIC_API_URL=http://127.0.0.1:8000 --tag volkswagen-web:${{ github.sha }} web
+      - name: Validate production Compose
+        working-directory: .
+        env:
+          POSTGRES_PASSWORD: validation-only
+          ALLOWED_ORIGINS: https://example.com
+          NEXT_PUBLIC_API_URL: https://api.example.com
+        run: docker compose --file compose.prod.yml config --quiet
