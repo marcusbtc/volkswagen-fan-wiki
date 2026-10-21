@@ -13,32 +13,7 @@ export function ImageUpload({ onUpload, currentUrl }: ImageUploadProps) {
   const [dragActive, setDragActive] = useState(false)
   const { showToast } = useToast()
 
-  const handleDrag = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true)
-    } else if (e.type === 'dragleave') {
-      setDragActive(false)
-    }
-  }, [])
-
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-    const file = e.dataTransfer.files[0]
-    if (!file) return
-    await uploadFile(file)
-  }, [])
-
-  const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    await uploadFile(file)
-  }
-
-  const uploadFile = async (file: File) => {
+  const uploadFile = useCallback(async (file: File) => {
     if (!file.type.startsWith('image/')) {
       showToast('Please upload an image file', 'error')
       return
@@ -57,11 +32,36 @@ export function ImageUpload({ onUpload, currentUrl }: ImageUploadProps) {
       const data = await res.json()
       onUpload(data.url)
       showToast('Image uploaded!', 'success')
-    } catch (err) {
+    } catch {
       showToast('Upload failed', 'error')
     } finally {
       setIsUploading(false)
     }
+  }, [onUpload, showToast])
+
+  const handleDrag = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true)
+    } else if (e.type === 'dragleave') {
+      setDragActive(false)
+    }
+  }, [])
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+    const file = e.dataTransfer.files[0]
+    if (!file) return
+    await uploadFile(file)
+  }, [uploadFile])
+
+  const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    await uploadFile(file)
   }
 
   return (
